@@ -1,0 +1,200 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+lines (37 sloc) 1.89 KB
+---
+title: "DATA 608 Mod1"
+author: "Joseph Foy"
+date: "`r Sys.Date()`"
+output: 
+  html_document: default
+  html_notebook: default
+---
+
+**Principles of Data Visualization and Introduction to ggplot2**
+
+I have provided you with data about the 5,000 fastest growing companies in the US, as compiled by Inc. magazine. lets read this in:
+
+```{r}
+inc <- read.csv("https://raw.githubusercontent.com/charleyferrari/CUNY_DATA_608/master/module1/Data/inc5000_data.csv", header= TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+And lets preview this data:
+
+```{r}
+head(inc)
+```
+```{r}
+summary(inc)
+```
+
+Think a bit on what these summaries mean. Use the space below to add some more relevant non-visual exploratory information you think helps you understand this data:
+
+```{r}
+# The revenue amounts appear with scientific notation.  To read these easier, the global options are set to remove scientific notation.
+options(scipen = 999)
+```
+
+```{r}
+# Further inspection of the data reveals, there are 5001 rows, yet the problem states that the data consists of the 5,000 fastest growing companies in the US.  The problem with the data may be that the last two rows show a duplicate ranking of 5000. To make sure that is the error and there are no duplicated data, we check for duplicate data by running the base R functions duplicated and sum. There are no duplicated data. Had there been duplicated data, the duplicated(inc) function would have returned a boolean response identifying TRUE as duplicated data.
+sum(duplicated(inc))
+```
+```{r}
+# The 5001th observation is relabeled 5001. The tail function is used to verify it is relabeled.
+inc[5001, 1] = 5001
+tail(inc)
+```
+
+```{r}
+# Missing data values are explored. The which() function returns the positions with missing values. In our case there are NA's for employees in rows 183, 1063, 1123, 1652, 1685, 2196, 2742, 3000, 3978, 4112, 4566, and 4968.
+
+which(is.na(inc$Name)) 
+which(is.na(inc$Growth_Rate))
+which(is.na(inc$Revenue))
+which(is.na(inc$Industry))
+which(is.na(inc$Employees))
+which(is.na(inc$City))
+which(is.na(inc$State))
+```
+
+```{r}
+# The sum of the missing employee rows is 12. 
+sum(is.na(inc$Employees))
+```
+```{r}
+# Given the small amount of rows with missing employee data, the rows are dropped from the dataset. First, call the tidyverse library to get the dplyr package, remove all rows with NAs from the employee column, and then verify the data has been removed. The dataframe now shows 4989 rows instead of 5001 rows.
+library(tidyverse)
+inc %>% na.omit()
+head(inc)
+```
+
+## Question 1
+
+Create a graph that shows the distribution of companies in the dataset by State (i.e., how many are in each state). There are a lot of States, so consider which axis you should use. This visualization is ultimately going to be consumed on a 'portrait' oriented screen (ie taller than wide), which should further guide your layout choices.
+
+```{r}
+# Group the data by State and run a count on the amount of companies in each State (including DC and Puerto Rico).
+inc1 <- inc %>% 
+  group_by(State) %>%
+  count(State) %>% 
+  arrange(desc(n)) 
+inc1
+```
+
+```{r}
+# By default, most of the data visualization tools will order the categorical groups alphabetically. The base R function reorder(State,n) will effectively reorder the State values based on the n column. In order to accommodate Industry names, the text angle for the x-axis labels were rotated 90 degrees. Since the data technically contains information from Puerto Rico, a Commonwealth, and DC, a District, a label is created to clarify the dataset.
+ggplot(data = inc1, aes(x = reorder(State,-n), y = n)) + 
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(title = "US States, PR, and DC Ranked High to Low Distribution of Companies ",
+       x = "States, PR, and DC",
+       y = "Number of Companies")
+```
+
+```{r fig.height = 3, fig.width = 1.25, fig.align = "left"}
+# By default, most of the data visualization tools will order the categorical groups alphabetically. The base R function reorder(State,n) will effectively reorder the State values based on the n column. The bar chart is flipped using the coord_flip function and since it is flipped, the labels are inversed. The graph was resized to allow it to fit without bunching State abbreviation names. The label for the graph was resized to fit using the theme(plot.title) function. 
+ggplot(data = inc1, aes(x = reorder(State,n), y = n)) + 
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  theme(plot.title = element_text(size=6)) +
+  labs(title = "States Ranked High to Low Distribution of Companies ",
+       x = "State",
+       y = "Number of Companies")
+```
+
+## Quesiton 2
+
+Lets dig in on the state with the 3rd most companies in the data set. Imagine you work for the state and are interested in how many people are employed by companies in different industries. Create a plot that shows the average and/or median employment by industry for companies in this state (only use cases with full data, use R's `complete.cases()` function.) In addition to this, your graph should show how variable the ranges are, and you should deal with outliers.
+
+```{r}
+# Find the State with the 3rd most companies.
+inc2 <- inc %>% 
+  group_by(State) %>%
+  count(State) %>% 
+  arrange(desc(n)) %>% 
+  as_tibble() %>% 
+  slice(3)
+inc2
+```
+```{r}
+# Once NY is identified as the State with the 3rd most companies, summary statistics are obtained by taking the original data set, inc, and filter for NY data.  A summary function is then run. 
+NY_employment <- filter(inc, State == "NY") 
+NY_employment
+```
+
+```{r}
+# As part of preparing the inc dataset earlier, incomplete cases where identified and removed. However, to verify if the filtered NY data only has complete cases, the sum function finds the total incomplete cases which is zero.
+sum(is.na(NY_employment))
+```
+
+```{r}
+# To find the total employees in different industries, the Industry variable has to be grouped and then summarized.  The description of the tibble shows that there are 25 Industries represented in NY.
+NY_employment %>% 
+  group_by(Industry) %>% 
+  summarize(Total_Employees = sum(Employees)) 
+```
+```{r}
+# Both mean and median values are calculated for employees per Industry in NY. From a glance, it appears that the data is heavily skewed for certain industries, e.g., Business Products & Services and Consumer Products & Services.
+NY_employment %>% 
+  group_by(Industry) %>% 
+  summarize(Mean_Employees = mean(Employees), Median_Employees = median(Employees))
+```
+
+```{r}
+# To identify outliers, boxplots were produced on one graph for all industries. It appears that about 11 industries have outliers. The Business Products and services industry has a significant outlier.  Looking at the data and this analysis, there does not appear to be any reason to remove it.
+
+ggplot(data = NY_employment, aes(x = Industry, y = Employees)) + 
+  geom_boxplot() +
+  coord_flip()
+```
+```{r}
+# To identify outliers, boxplots were produced on one graph for all industries. It appears that about 11 industries have outliers. The Business Products and services industry has a significant outlier.  Looking at the data and this analysis, there does not appear to be any reason to remove it.
+ggplot(data = NY_employment, aes(x = Industry, y = Employees)) + 
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+## Question 3
+
+Now imagine you work for an investor and want to see which industries generate the most revenue per employee. Create a chart that makes this information clear. Once again, the distribution per industry should be shown.
+
+```{r}
+# We can look at the data and summarize the total Revenues and Employees per Industry.  To find the total employees in different industries, the Industry variable has to be grouped and then summarized. The description of the tibble shows that there are 25 Industries represented in NY. Note that nine industries show Employees with a NA entry, indicating there are missing values in the Employee column.
+most_rev <- inc %>% 
+  group_by(Industry) %>% 
+  summarize(Revenues = sum(Revenue), Employees = sum(Employees))
+most_rev
+```
+```{r}
+# In the Exploratory Data Analysis above, several industries appeared with Employee NA values. There are 12 NA entries and specifically identified in the rank order 183, 1063, etc. 
+sum(is.na(inc))
+which(is.na(inc$Employees))
+```
+
+```{r}
+# To remove the NAs from the data, the filter (complete.cases) function is called to only consider all rows with complete data entries. With the NAs removed, a new variable, revenue per employee can be created with the mutate function to measure how much revenue each employee generates per Industry.
+
+most_rev_per_employee <- inc %>% 
+  filter(complete.cases(.)) %>% 
+  group_by(Industry) %>% 
+  summarize(Revenues = sum(Revenue), Employees = sum(Employees)) %>% 
+  mutate(Revenue_per_Employee = Revenues/Employees)
+most_rev_per_employee
+```
+
+
+
+```{r}
+# By default, most of the data visualization tools will order the categorical groups alphabetically. The base R function reorder(Industry, -Revenue_per_Employee) will effectively reorder the Industry values based on the Revenue_per_Employee column. The negative sign before the Revenue_per_Employee is used to show the values in descending order, that is, from high to low.
+ggplot(data = most_rev_per_employee, aes(x = reorder(Industry, -Revenue_per_Employee), y = Revenue_per_Employee)) + geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(title = "Industries Ranked High to Low: Revenue per Employee",
+       x = "Industry",
+       y = "Revenue per Employee")
+```
